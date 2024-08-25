@@ -35,9 +35,9 @@ func (rbac *SqlRbac) GetItem(name string) (gorbac.Item, error) {
 	}
 }
 
-func (rbac *SqlRbac) GetItems(t int32) ([]gorbac.Item, error) {
+func (rbac *SqlRbac) GetItemsByType(itemType gorbac.ItemType) ([]gorbac.Item, error) {
 	var authItems []AuthItem
-	tx := rbac.db.Where("type = ?", t).Find(&authItems)
+	tx := rbac.db.Where("type = ?", itemType.Value()).Find(&authItems)
 	if err := tx.Error; err == nil {
 		items := ToItems(authItems)
 		return items, nil
@@ -67,6 +67,11 @@ func (rbac *SqlRbac) RemoveItem(name string) error {
 		tx.Where("name = ?", name).Delete(&authItem)
 		return nil
 	})
+}
+
+func (rbac *SqlRbac) RemoveItemByType(itemType gorbac.ItemType) error {
+	var authItem AuthItem
+	return rbac.db.Where("type = ?", itemType.Value()).Delete(&authItem).Error
 }
 
 func (rbac *SqlRbac) UpdateItem(itemName string, updateItem gorbac.Item) error {
@@ -206,7 +211,7 @@ func (rbac *SqlRbac) FindPermissionsByUser(userId interface{}) ([]gorbac.Item, e
 	}
 }
 
-func (rbac *SqlRbac) FindAssignmentByUser(userId interface{}) ([]*gorbac.Assignment, error) {
+func (rbac *SqlRbac) FindAssignmentsByUser(userId interface{}) ([]*gorbac.Assignment, error) {
 	var authAssignments []AuthAssignment
 	tx := rbac.db.Where("user_id = ?", userId).Find(&authAssignments)
 	if err := tx.Error; err == nil {
@@ -282,7 +287,7 @@ func (rbac *SqlRbac) GetAssignment(userId interface{}, name string) (*gorbac.Ass
 	}
 }
 
-func (rbac *SqlRbac) GetAssignmentByItems(name string) ([]*gorbac.Assignment, error) {
+func (rbac *SqlRbac) GetAssignmentsByItem(name string) ([]*gorbac.Assignment, error) {
 	var authAssignments []AuthAssignment
 	tx := rbac.db.Where("item_name = ?", name).Find(&authAssignments)
 	if err := tx.Error; err == nil {
@@ -321,31 +326,32 @@ func (rbac *SqlRbac) RemoveAll() error {
 		tx.Delete(&authAssignment)
 		var authItem AuthItem
 		tx.Delete(&authItem)
+		var authItemChild AuthItemChild
+		tx.Delete(&authItemChild)
 		var authRule AuthRule
 		tx.Delete(&authRule)
 		return nil
 	})
 }
 
-func (rbac *SqlRbac) RemoveChildByNames(key string, names []string) error {
+func (rbac *SqlRbac) RemoveChildByNames(t gorbac.ItemType, names []string) error {
+	key := "parent"
+	if t == gorbac.PermissionType {
+		key = "child"
+	}
 	if names != nil && len(names) > 0 {
 		var authItemChild AuthItemChild
-		return rbac.db.Where(key+" in (?)", names).Delete(&authItemChild).Error
+		return rbac.db.Where(key+" in ?", names).Delete(&authItemChild).Error
 	}
 	return nil
 }
 
-func (rbac *SqlRbac) RemoveAssignmentByName(names []string) error {
+func (rbac *SqlRbac) RemoveAssignmentByNames(names []string) error {
 	if names != nil && len(names) > 0 {
 		var authAssignments AuthAssignment
 		return rbac.db.Where("item_name in ?", names).Delete(&authAssignments).Error
 	}
 	return nil
-}
-
-func (rbac *SqlRbac) RemoveItemByType(t int32) error {
-	var authItem AuthItem
-	return rbac.db.Where("type = ?", t).Delete(&authItem).Error
 }
 
 func (rbac *SqlRbac) RemoveAllRules() error {
