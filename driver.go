@@ -2,6 +2,7 @@ package gorbac_gorm
 
 import (
 	"fmt"
+	logger "github.com/kordar/gologger"
 	"github.com/kordar/gorbac"
 	"gorm.io/gorm"
 )
@@ -244,10 +245,12 @@ func (rbac *SqlRbac) HasChild(parent string, child string) bool {
 }
 
 func (rbac *SqlRbac) FindChildren(name string) ([]gorbac.Item, error) {
+	logger.Infof("====================%s", name)
 	var authItems []AuthItem
 	tx := rbac.db.Model(&AuthItem{}).
 		Joins(fmt.Sprintf("inner join %s on %s.name = %s.child", gorbac.GetTableName("item-child"), gorbac.GetTableName("item"), gorbac.GetTableName("item-child"))).
-		Where(fmt.Sprintf("%s.parent = ?", gorbac.GetTableName("item-child")), name)
+		Where(fmt.Sprintf("%s.parent = ?", gorbac.GetTableName("item-child")), name).
+		Find(&authItems)
 	if err := tx.Error; err == nil {
 		items := ToItems(authItems)
 		return items, nil
