@@ -2,6 +2,7 @@ package gorbac_gorm
 
 import (
 	"fmt"
+
 	"github.com/kordar/gorbac"
 	"gorm.io/gorm"
 )
@@ -138,11 +139,12 @@ func (rbac *SqlRbac) UpdateRule(ruleName string, updateRule gorbac.Rule) error {
 
 // FindRolesByUser 通过会员id获取关联的所有角色
 func (rbac *SqlRbac) FindRolesByUser(userId interface{}) ([]gorbac.Item, error) {
-	authAssignment := AuthAssignment{}
 	var authItems []AuthItem
-	tx := rbac.db.Model(&authAssignment).
-		Joins(fmt.Sprintf("inner join %s on %s.item_name = %s.name", gorbac.GetTableName("item"), gorbac.GetTableName("assignment"), gorbac.GetTableName("item"))).
-		Where(fmt.Sprintf("%s.user_id = ? and %s.`type` = 1", gorbac.GetTableName("assignment"), gorbac.GetTableName("item")), userId).
+	tx := rbac.db.
+		Table(gorbac.GetTableName("assignment")+" a").
+		Select("b.*").
+		Joins(fmt.Sprintf("inner join %s b on a.item_name = b.name", gorbac.GetTableName("item"))).
+		Where(fmt.Sprintf("a.user_id = ? and b.`type` = %d", gorbac.RoleType), userId).
 		Find(&authItems)
 	if err := tx.Error; err == nil {
 		items := ToItems(authItems)
@@ -197,11 +199,12 @@ func (rbac *SqlRbac) GetItemList(t int32, names []string) ([]gorbac.Item, error)
 }
 
 func (rbac *SqlRbac) FindPermissionsByUser(userId interface{}) ([]gorbac.Item, error) {
-	authAssignment := AuthAssignment{}
 	var authItems []AuthItem
-	tx := rbac.db.Model(&authAssignment).
-		Joins(fmt.Sprintf("inner join %s on %s.item_name = %s.name", gorbac.GetTableName("item"), gorbac.GetTableName("assignment"), gorbac.GetTableName("item"))).
-		Where(fmt.Sprintf("%s.user_id = ? and %s.type = %d", gorbac.GetTableName("assignment"), gorbac.GetTableName("item"), gorbac.PermissionType), userId).
+	tx := rbac.db.
+		Table(gorbac.GetTableName("assignment")+" a").
+		Select("b.*").
+		Joins(fmt.Sprintf("inner join %s b on a.item_name = b.name", gorbac.GetTableName("item"))).
+		Where(fmt.Sprintf("a.user_id = ? and b.type = %d", gorbac.PermissionType), userId).
 		Find(&authItems)
 	if err := tx.Error; err == nil {
 		items := ToItems(authItems)
@@ -260,6 +263,24 @@ func (rbac *SqlRbac) FindChildren(name string) ([]gorbac.Item, error) {
 func (rbac *SqlRbac) Assign(assignment gorbac.Assignment) error {
 	authAssignment := ToAuthAssignment(assignment)
 	return rbac.db.Create(&authAssignment).Error
+}
+
+func (rbac *SqlRbac) Assigns(assignments ...*gorbac.Assignment) error {
+	if len(assignments) == 0 {
+		return nil
+	}
+
+	authAssignments := make([]AuthAssignment, 0, len(assignments))
+	for _, a := range assignments {
+		aa := ToAuthAssignment(*a)
+		authAssignments = append(authAssignments, aa)
+	}
+
+	if err := rbac.db.Create(&authAssignments).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (rbac *SqlRbac) RemoveAssignment(userId interface{}, name string) error {
@@ -340,7 +361,7 @@ func (rbac *SqlRbac) RemoveChildByNames(t gorbac.ItemType, names []string) error
 	if t == gorbac.PermissionType {
 		key = "child"
 	}
-	if names != nil && len(names) > 0 {
+	if len(names) > 0 {
 		var authItemChild AuthItemChild
 		return rbac.db.Where(key+" in ?", names).Delete(&authItemChild).Error
 	}
@@ -348,7 +369,7 @@ func (rbac *SqlRbac) RemoveChildByNames(t gorbac.ItemType, names []string) error
 }
 
 func (rbac *SqlRbac) RemoveAssignmentByNames(names []string) error {
-	if names != nil && len(names) > 0 {
+	if len(names) > 0 {
 		var authAssignments AuthAssignment
 		return rbac.db.Where("item_name in ?", names).Delete(&authAssignments).Error
 	}

@@ -3,6 +3,6 @@ module github.com/kordar/gorbac-gorm
 go 1.16
 
 require (
-	github.com/kordar/gorbac v1.1.1
+	github.com/kordar/gorbac v1.1.3
 	gorm.io/gorm v1.25.10
 )
