@@ -60,12 +60,15 @@ func (rbac *SqlRbac) FindAllItems() ([]gorbac.Item, error) {
 
 func (rbac *SqlRbac) RemoveItem(name string) error {
 	return rbac.db.Transaction(func(tx *gorm.DB) error {
-		authItemChild := AuthItemChild{}
-		tx.Where("parent = ? or child = ?", name, name).Delete(&authItemChild)
-		authAssignment := AuthAssignment{}
-		tx.Where("item_name = ?", name).Delete(&authAssignment)
-		authItem := AuthItem{}
-		tx.Where("name = ?", name).Delete(&authItem)
+		if err := tx.Where("parent = ? or child = ?", name, name).Delete(&AuthItemChild{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("item_name = ?", name).Delete(&AuthAssignment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("name = ?", name).Delete(&AuthItem{}).Error; err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -78,14 +81,18 @@ func (rbac *SqlRbac) RemoveItemByType(itemType gorbac.ItemType) error {
 func (rbac *SqlRbac) UpdateItem(itemName string, updateItem gorbac.Item) error {
 	return rbac.db.Transaction(func(tx *gorm.DB) error {
 		if itemName != updateItem.GetName() {
-			authItemChild := AuthItemChild{}
-			authAssignment := AuthAssignment{}
-			tx.Model(&authItemChild).Where("parent = ?", itemName).Update("parent", updateItem.GetName())
-			tx.Model(&authItemChild).Where("child = ?", itemName).Update("child", updateItem.GetName())
-			tx.Model(&authAssignment).Where("item_name = ?", itemName).Update("item_name", updateItem.GetName())
+			if err := tx.Model(&AuthItemChild{}).Where("parent = ?", itemName).Update("parent", updateItem.GetName()).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&AuthItemChild{}).Where("child = ?", itemName).Update("child", updateItem.GetName()).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&AuthAssignment{}).Where("item_name = ?", itemName).Update("item_name", updateItem.GetName()).Error; err != nil {
+				return err
+			}
 		}
 		authItem := ToAuthItem(updateItem)
-		return tx.Model(&authItem).Where("name = ?", itemName).Omit("create_time").Updates(&authItem).Error
+		return tx.Model(&AuthItem{}).Where("name = ?", itemName).Omit("create_time").Updates(&authItem).Error
 	})
 }
 
@@ -118,10 +125,12 @@ func (rbac *SqlRbac) GetRules() ([]*gorbac.Rule, error) {
 
 func (rbac *SqlRbac) RemoveRule(ruleName string) error {
 	return rbac.db.Transaction(func(tx *gorm.DB) error {
-		authItem := AuthItem{}
-		tx.Model(&authItem).Where("rule_name = ?", ruleName).Update("rule_name", nil)
-		authRule := AuthRule{}
-		tx.Where("name = ?", ruleName).Delete(&authRule)
+		if err := tx.Model(&AuthItem{}).Where("rule_name = ?", ruleName).Update("rule_name", nil).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("name = ?", ruleName).Delete(&AuthRule{}).Error; err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -129,11 +138,12 @@ func (rbac *SqlRbac) RemoveRule(ruleName string) error {
 func (rbac *SqlRbac) UpdateRule(ruleName string, updateRule gorbac.Rule) error {
 	return rbac.db.Transaction(func(tx *gorm.DB) error {
 		if ruleName != updateRule.Name {
-			authItem := AuthItem{}
-			tx.Model(&authItem).Where("rule_name = ?", ruleName).Update("rule_name", updateRule.Name)
+			if err := tx.Model(&AuthItem{}).Where("rule_name = ?", ruleName).Update("rule_name", updateRule.Name).Error; err != nil {
+				return err
+			}
 		}
-		authRule := AuthRule{}
-		return tx.Model(&authRule).Where("name = ?", ruleName).Omit("create_time").Updates(&updateRule).Error
+		authRule := ToAuthRule(updateRule)
+		return tx.Model(&AuthRule{}).Where("name = ?", ruleName).Omit("create_time").Updates(&authRule).Error
 	})
 }
 
@@ -344,14 +354,18 @@ func (rbac *SqlRbac) GetAllAssignment() ([]*gorbac.Assignment, error) {
 
 func (rbac *SqlRbac) RemoveAll() error {
 	return rbac.db.Transaction(func(tx *gorm.DB) error {
-		var authAssignment AuthAssignment
-		tx.Delete(&authAssignment)
-		var authItem AuthItem
-		tx.Delete(&authItem)
-		var authItemChild AuthItemChild
-		tx.Delete(&authItemChild)
-		var authRule AuthRule
-		tx.Delete(&authRule)
+		if err := tx.Delete(&AuthAssignment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&AuthItem{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&AuthItemChild{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&AuthRule{}).Error; err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -378,10 +392,12 @@ func (rbac *SqlRbac) RemoveAssignmentByNames(names []string) error {
 
 func (rbac *SqlRbac) RemoveAllRules() error {
 	return rbac.db.Transaction(func(tx *gorm.DB) error {
-		var authItem AuthItem
-		tx.Model(&authItem).Update("rule_name", nil)
-		var authRule AuthRule
-		tx.Delete(&authRule)
+		if err := tx.Model(&AuthItem{}).Update("rule_name", nil).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&AuthRule{}).Error; err != nil {
+			return err
+		}
 		return nil
 	})
 }

@@ -34,9 +34,10 @@ func ToItems(authItems []AuthItem) []gorbac.Item {
 
 func ToAuthRule(rule gorbac.Rule) AuthRule {
 	return AuthRule{
-		Name:       rule.Name,
-		CreateTime: rule.CreateTime,
-		UpdateTime: rule.UpdateTime,
+		Name:        rule.Name,
+		ExecuteName: rule.ExecuteName,
+		CreateTime:  rule.CreateTime,
+		UpdateTime:  rule.UpdateTime,
 	}
 }
 
